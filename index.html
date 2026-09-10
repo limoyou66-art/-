@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自动拍照相册</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: linear-gradient(145deg, #0b1a2e 0%, #1a2f42 100%);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1.5rem;
+    }
+
+    .app-container {
+      max-width: 800px;
+      width: 100%;
+      background: rgba(18, 30, 41, 0.9);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 2.5rem;
+      box-shadow: 0 30px 50px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+      padding: 2rem 2rem 2.2rem;
+      color: #eef4ff;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: #ffffff;
+    }
+
+    h1 span {
+      background: #3b82f6;
+      font-size: 1.1rem;
+      width: 2.2rem;
+      height: 2.2rem;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 15px #3b82f680;
+    }
+
+    .subhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.8rem;
+      color: #a2b9d4;
+      font-size: 0.95rem;
+      border-bottom: 1px solid #2e4057;
+      padding-bottom: 0.8rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .status-badge {
+      background: #1e2f44;
+      padding: 0.35rem 1rem;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid #3d5a78;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #facc15;
+      box-shadow: 0 0 10px #facc15;
+      transition: all 0.2s ease;
+    }
+
+    .status-dot.active {
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .status-dot.error {
+      background: #ef4444;
+      box-shadow: 0 0 10px #ef4444;
+    }
+
+    /* 隐藏视频元素，仅用于捕获画面 */
+    .hidden-video {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+      top: -9999px;
+      left: -9999px;
+    }
+
+    /* 主菜单 */
+    .menu-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      margin: 1.8rem 0 0.5rem;
+    }
+
+    .menu-btn {
+      background: #1e2e40;
+      border: 1px solid #36516b;
+      color: #f0f7ff;
+      padding: 1.4rem 1.8rem;
+      border-radius: 1.6rem;
+      font-size: 1.15rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 16px -8px #00000080;
+      width: 100%;
+      text-align: left;
+    }
+
+    .menu-btn:hover {
+      background: #2a3f58;
+      border-color: #53799e;
+      transform: translateY(-2px);
+      box-shadow: 0 14px 20px -10px #000000b0;
+    }
+
+    .menu-btn:active {
+      transform: translateY(0);
+      background: #1f3448;
+    }
+
+    .menu-btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+      filter: grayscale(0.5);
+    }
+
+    .menu-btn .icon {
+      font-size: 1.8rem;
+      width: 3rem;
+      height: 3rem;
+      background: #0e1a26;
+      border-radius: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #2e4a66;
+      flex-shrink: 0;
+    }
+
+    .menu-btn .btn-text {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    .menu-btn .btn-text small {
+      font-size: 0.8rem;
+      font-weight: 400;
+      color: #8aa3be;
+      letter-spacing: 0.2px;
+    }
+
+    .menu-btn.primary {
+      background: #2563eb;
+      border-color: #3b82f6;
+      box-shadow: 0 8px 20px -8px #2563eb;
+    }
+
+    .menu-btn.primary:hover {
+      background: #1d4ed8;
+    }
+
+    .menu-btn.primary .icon {
+      background: #1e4bb8;
+      border-color: #5b8ef0;
+    }
+
+    /* 查看照片面板 */
+    .view-panel {
+      display: none;
+      flex-direction: column;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .view-panel.active {
+      display: flex;
+    }
+
+    .view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .view-header h2 {
+      font-size: 1.3rem;
+      font-weight: 500;
+      color: #d9e9ff;
+    }
+
+    .photo-count {
+      background: #1e2f44;
+      padding: 0.3rem 1.1rem;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      border: 1px solid #3a5570;
+      color: #b9d0ea;
+      white-space: nowrap;
+    }
+
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 1rem;
+      max-height: 380px;
+      overflow-y: auto;
+      padding: 0.3rem 0.2rem 0.5rem;
+      scrollbar-width: thin;
+      scrollbar-color: #2e4a66 #0e1a26;
+    }
+
+    .gallery-grid::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .gallery-grid::-webkit-scrollbar-track {
+      background: #0e1a26;
+      border-radius: 20px;
+    }
+
+    .gallery-grid::-webkit-scrollbar-thumb {
+      background: #2e4a66;
+      border-radius: 20px;
+    }
+
+    .photo-card {
+      aspect-ratio: 1 / 1;
+      background: #101f2e;
+      border-radius: 1.2rem;
+      overflow: hidden;
+      border: 2px solid #20384d;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 12px -6px #00000070;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .photo-card:hover {
+      border-color: #3b82f6;
+      transform: scale(1.02);
+      box-shadow: 0 12px 18px -8px #000000b0;
+    }
+
+    .photo-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+
+    .photo-card:hover img {
+      transform: scale(1.05);
+    }
+
+    .empty-gallery {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      color: #6e8aa8;
+      text-align: center;
+      background: #0b1620;
+      border-radius: 1.5rem;
+      border: 2px dashed #1e3347;
+      gap: 0.5rem;
+      font-size: 0.95rem;
+    }
+
+    .empty-gallery svg {
+      opacity: 0.5;
+      width: 48px;
+      height: 48px;
+    }
+
+    .back-btn {
+      background: #1e2e40;
+      border: 1px solid #36516b;
+      color: #eef4ff;
+      padding: 0.8rem 1.6rem;
+      border-radius: 2.5rem;
+      font-size: 0.95rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      box-shadow: 0 5px 10px -3px #00000060;
+      margin-top: 0.5rem;
+      width: fit-content;
+    }
+
+    .back-btn:hover {
+      background: #2a3f58;
+      border-color: #53799e;
+    }
+
+    /* 提示条 */
+    .notification-toast {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1e2e40;
+      color: white;
+      padding: 0.8rem 1.8rem;
+      border-radius: 50px;
+      border-left: 5px solid #3b82f6;
+      box-shadow: 0 20px 35px -10px #000000cc;
+      font-weight: 500;
+      transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+      z-index: 1000;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+      border: 1px solid #344f6b;
+      font-size: 0.9rem;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    .notification-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .footer-note {
+      margin-top: 1.5rem;
+      font-size: 0.75rem;
+      color: #5f7991;
+      text-align: center;
+      border-top: 1px solid #1f3244;
+      padding-top: 1rem;
+      line-height: 1.5;
+    }
+
+    /* 全屏拍照闪光 */
+    .flash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease;
+      z-index: 9999;
+    }
+
+    .flash-overlay.flash {
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <h1>
+      <span>📸</span> 自动拍照相册
+    </h1>
+    <div class="subhead">
+      <div>允许摄像头后自动拍照</div>
+      <div class="status-badge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">等待摄像头</span>
+      </div>
+    </div>
+
+    <!-- 隐藏的视频元素（只用于拍照） -->
+    <video id="video" class="hidden-video" autoplay playsinline muted></video>
+
+    <!-- 主菜单：两个选项 -->
+    <div class="menu-panel" id="menuPanel">
+      <button class="menu-btn primary" id="viewPhotosBtn">
+        <div class="icon">🖼️</div>
+        <div class="btn-text">
+          <span>查看照片</span>
+          <small>浏览已拍摄的所有照片</small>
+        </div>
+      </button>
+      <button class="menu-btn secondary" id="takeAnotherBtn" disabled>
+        <div class="icon">📷</div>
+        <div class="btn-text">
+          <span>再拍一张</span>
+          <small>使用摄像头拍摄新照片</small>
+        </div>
+      </button>
+    </div>
+
+    <!-- 查看照片面板 -->
+    <div class="view-panel" id="viewPanel">
+      <div class="view-header">
+        <h2>📁 我的照片</h2>
+        <div class="photo-count" id="photoCount">0 张</div>
+      </div>
+      <div class="gallery-grid" id="galleryGrid"></div>
+      <button class="back-btn" id="backBtn">← 返回菜单</button>
+    </div>
+
+    <div class="footer-note">
+      ⚡ 照片保存在浏览器本地，刷新页面后仍然保留。
+    </div>
+  </div>
+
+  <div class="flash-overlay" id="flashOverlay"></div>
+  <div id="toast" class="notification-toast">照片已保存</div>
+
+  <script>
+    (function() {
+      // ------ DOM 元素 ------
+      const video = document.getElementById('video');
+      const viewPhotosBtn = document.getElementById('viewPhotosBtn');
+      const takeAnotherBtn = document.getElementById('takeAnotherBtn');
+      const menuPanel = document.getElementById('menuPanel');
+      const viewPanel = document.getElementById('viewPanel');
+      const backBtn = document.getElementById('backBtn');
+      const galleryGrid = document.getElementById('galleryGrid');
+      const photoCountSpan = document.getElementById('photoCount');
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+      const flashOverlay = document.getElementById('flashOverlay');
+      const toast = document.getElementById('toast');
+
+      // ------ 配置 ------
+      const STORAGE_KEY = 'my_photo_gallery_v1';
+      const MAX_PHOTOS = 100; // 最多保存100张，避免超出 localStorage 限制
+
+      // ------ 状态 ------
+      let mediaStream = null;
+      let photos = [];               // 存储 { id, dataUrl, time }
+      let autoCaptureDone = false;
+      let toastTimer = null;
+      let cameraReady = false;
+
+      // ------ 工具函数 ------
+      function showToast(message, duration = 2000) {
+        if (toastTimer) clearTimeout(toastTimer);
+        toast.textContent = message;
+        toast.classList.add('show');
+        toastTimer = setTimeout(() => {
+          toast.classList.remove('show');
+          toastTimer = null;
+        }, duration);
+      }
+
+      function setStatus(type, text) {
+        statusDot.className = 'status-dot';
+        if (type === 'active') statusDot.classList.add('active');
+        if (type === 'error') statusDot.classList.add('error');
+        statusText.textContent = text;
+      }
+
+      // 保存到 localStorage
+      function savePhotos() {
+        try {
+          if (photos.length > MAX_PHOTOS) {
+            photos = photos.slice(-MAX_PHOTOS);
+          }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(photos));
+        } catch (e) {
+          // 存储满时裁剪一半
+          try {
+            photos = photos.slice(-Math.floor(MAX_PHOTOS / 2));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(photos));
+            showToast('存储空间有限，部分旧照片已移除', 2500);
+          } catch (e2) {
+            console.error('保存照片失败', e2);
+          }
+        }
+      }
+
+      // 从 localStorage 加载
+      function loadPhotos() {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) {
+              photos = parsed;
+            }
+          }
+        } catch (e) {
+          console.warn('读取照片失败', e);
+        }
+      }
+
+      // 渲染相册
+      function renderGallery() {
+        galleryGrid.innerHTML = '';
+
+        if (photos.length === 0) {
+          const emptyDiv = document.createElement('div');
+          emptyDiv.className = 'empty-gallery';
+          emptyDiv.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <circle cx="8.5" cy="8.5" r="1.5"></circle>
+              <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <span>还没有照片</span>
+            <small style="font-size:0.8rem; opacity:0.7;">允许摄像头后会自动拍照</small>
+          `;
+          galleryGrid.appendChild(emptyDiv);
+        } else {
+          // 按时间倒序（最新在前）
+          const sorted = [...photos].sort((a, b) => (b.time || 0) - (a.time || 0));
+          sorted.forEach((photo) => {
+            const card = document.createElement('div');
+            card.className = 'photo-card';
+
+            const img = document.createElement('img');
+            img.src = photo.dataUrl;
+            img.alt = '照片';
+            img.loading = 'lazy';
+            card.appendChild(img);
+
+            // 点击查看大图
+            card.addEventListener('click', () => {
+              window.open(photo.dataUrl, '_blank');
+            });
+            galleryGrid.appendChild(card);
+          });
+        }
+
+        photoCountSpan.textContent = `${photos.length} 张`;
+      }
+
+      // 添加照片
+      function addPhoto(dataUrl) {
+        const newPhoto = {
+          id: 'photo_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          dataUrl: dataUrl,
+          time: Date.now()
+        };
+        photos.push(newPhoto);
+        savePhotos();
+        renderGallery();
+      }
+
+      // 闪光效果
+      function flashEffect() {
+        flashOverlay.classList.add('flash');
+        setTimeout(() => {
+          flashOverlay.classList.remove('flash');
+        }, 150);
+      }
+
+      // 从 video 捕获当前帧
+      function captureFromVideo() {
+        if (!video.videoWidth || !video.videoHeight) {
+          return null;
+        }
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          // 镜像翻转（自拍效果）
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          return canvas.toDataURL('image/jpeg', 0.85);
+        } catch (e) {
+          console.error('拍照失败', e);
+          return null;
+        }
+      }
+
+      // 拍照
+      function takePhoto(auto = false) {
+        if (!mediaStream || !video.srcObject) {
+          if (!auto) showToast('摄像头未就绪', 1500);
+          return false;
+        }
+
+        const dataUrl = captureFromVideo();
+        if (dataUrl) {
+          flashEffect();
+          addPhoto(dataUrl);
+          if (auto) {
+            showToast('✨ 自动拍照已保存', 1800);
+          } else {
+            showToast('📸 拍照已保存', 1500);
+          }
+          return true;
+        }
+        return false;
+      }
+
+      // 停止流
+      function stopMediaStream() {
+        if (mediaStream) {
+          mediaStream.getTracks().forEach(track => track.stop());
+          mediaStream = null;
+        }
+        if (video.srcObject) {
+          video.srcObject = null;
+        }
+        cameraReady = false;
+        takeAnotherBtn.disabled = true;
+      }
+
+      // 初始化摄像头（请求权限）
+      async function initCamera() {
+        stopMediaStream();
+        autoCaptureDone = false;
+        cameraReady = false;
+        takeAnotherBtn.disabled = true;
+
+        setStatus('', '请求权限中...');
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user' },
+            audio: false
+          });
+
+          mediaStream = stream;
+          video.srcObject = stream;
+
+          // 等待视频元数据
+          await new Promise((resolve) => {
+            if (video.readyState >= 1) {
+              resolve();
+            } else {
+              video.onloadedmetadata = () => resolve();
+            }
+          });
+
+          await video.play();
+
+          setStatus('active', '摄像头已就绪');
+          cameraReady = true;
+          takeAnotherBtn.disabled = false;
+
+          // 自动拍一张
+          if (!autoCaptureDone) {
+            autoCaptureDone = true;
+            setTimeout(() => {
+              if (mediaStream && video.srcObject) {
+                takePhoto(true);
+              }
+            }, 250);
+          }
+
+        } catch (err) {
+          console.error('摄像头访问失败:', err);
+          setStatus('error', '权限被拒绝或不可用');
+          cameraReady = false;
+          takeAnotherBtn.disabled = true;
+
+          if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+            showToast('请允许摄像头权限以自动拍照', 3000);
+          } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+            showToast('未找到摄像头设备', 3000);
+          } else {
+            showToast('摄像头启动失败: ' + err.message, 3000);
+          }
+        }
+      }
+
+      // ------ 事件绑定 ------
+      viewPhotosBtn.addEventListener('click', () => {
+        menuPanel.style.display = 'none';
+        viewPanel.classList.add('active');
+        renderGallery();
+      });
+
+      backBtn.addEventListener('click', () => {
+        viewPanel.classList.remove('active');
+        menuPanel.style.display = 'flex';
+      });
+
+      takeAnotherBtn.addEventListener('click', () => {
+        if (!cameraReady) {
+          showToast('摄像头尚未就绪，请稍候', 1500);
+          return;
+        }
+        takePhoto(false);
+      });
+
+      // 页面关闭时停止摄像头
+      window.addEventListener('beforeunload', () => {
+        stopMediaStream();
+      });
+
+      // ------ 启动 ------
+      // 1. 先加载已有照片并渲染
+      loadPhotos();
+      renderGallery();
+
+      // 2. 立即请求摄像头权限（脚本在 body 底部，DOM 已就绪）
+      // 用 setTimeout 0 让权限请求尽早发出
+      setTimeout(() => {
+        initCamera();
+      }, 0);
+
+    })();
+  </script>
+</body>
+</html>
