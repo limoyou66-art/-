@@ -163,38 +163,11 @@
       [...photos].sort((a, b) => (b.time || 0) - (a.time || 0)).forEach(p => {
   const c = document.createElement('div');
   c.className = 'card';
-
   const img = document.createElement('img');
   img.src = p.dataUrl;
   img.loading = 'lazy';
   c.appendChild(img);
-
-  img.onclick = () => window.open(p.dataUrl, '_blank');
-
-  const del = document.createElement('button');
-  del.className = 'del';
-  del.textContent = '✕';
-  del.onclick = async (e) => {
-    e.stopPropagation();
-    if (!confirm('确定删除这张照片吗？')) return;
-    try {
-      const res = await fetch(API_BASE + '/api/photos', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: p.id }),
-      });
-      if (res.ok) {
-        showToast('已删除');
-        await loadPhotos();
-      } else {
-        showToast('删除失败');
-      }
-    } catch (err) {
-      showToast('删除失败，请检查网络');
-    }
-  };
-  c.appendChild(del);
-
+  c.onclick = () => window.open(p.dataUrl, '_blank');
   grid.appendChild(c);
 });
     count.textContent = photos.length + ' 张';
