@@ -33,6 +33,17 @@
   .card { aspect-ratio: 1/1; background: #101f2e; border-radius: 1.2rem; overflow: hidden; border: 2px solid #20384d; cursor: pointer; transition: 0.2s; }
   .card:hover { border-color: #3b82f6; transform: scale(1.02); }
   .card img { width: 100%; height: 100%; object-fit: cover; }
+ .card { position: relative; }
+.card .del {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(220,38,38,0.85); color: #fff;
+  border: none; border-radius: 50%;
+  width: 26px; height: 26px; font-size: 14px;
+  cursor: pointer; display: none;
+  align-items: center; justify-content: center;
+  line-height: 1; padding: 0;
+}
+.card:hover .del { display: flex; }
   .empty { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; padding: 3rem; color: #6e8aa8; background: #0b1620; border-radius: 1.5rem; border: 2px dashed #1e3347; gap: 0.5rem; }
   .back { background: #1e2e40; border: 1px solid #36516b; color: #eef4ff; padding: 0.8rem 1.6rem; border-radius: 2.5rem; cursor: pointer; width: fit-content; transition: 0.15s; }
   .back:hover { background: #2a3f58; }
@@ -150,16 +161,42 @@
       grid.appendChild(e);
     } else {
       [...photos].sort((a, b) => (b.time || 0) - (a.time || 0)).forEach(p => {
-        const c = document.createElement('div');
-        c.className = 'card';
-        const img = document.createElement('img');
-        img.src = p.dataUrl;
-        img.loading = 'lazy';
-        c.appendChild(img);
-        c.onclick = () => window.open(p.dataUrl, '_blank');
-        grid.appendChild(c);
+  const c = document.createElement('div');
+  c.className = 'card';
+
+  const img = document.createElement('img');
+  img.src = p.dataUrl;
+  img.loading = 'lazy';
+  c.appendChild(img);
+
+  img.onclick = () => window.open(p.dataUrl, '_blank');
+
+  const del = document.createElement('button');
+  del.className = 'del';
+  del.textContent = '✕';
+  del.onclick = async (e) => {
+    e.stopPropagation();
+    if (!confirm('确定删除这张照片吗？')) return;
+    try {
+      const res = await fetch(API_BASE + '/api/photos', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: p.id }),
       });
+      if (res.ok) {
+        showToast('已删除');
+        await loadPhotos();
+      } else {
+        showToast('删除失败');
+      }
+    } catch (err) {
+      showToast('删除失败，请检查网络');
     }
+  };
+  c.appendChild(del);
+
+  grid.appendChild(c);
+});
     count.textContent = photos.length + ' 张';
   }
 
