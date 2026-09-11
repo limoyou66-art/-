@@ -36,7 +36,8 @@
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; max-height: 380px; overflow-y: auto; padding: 0.3rem 0; }
   .card { aspect-ratio: 1/1; background: #101f2e; border-radius: 1.2rem; overflow: hidden; border: 2px solid #20384d; transition: 0.2s; position: relative; }
   .card img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
-  .card .del { position: absolute; top: 6px; right: 6px; background: rgba(220,38,38,0.85); color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0; }
+  .card .del { position: absolute; top: 6px; right: 6px; background: rgba(220,38,38,0.85); color: #fff; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 15px; cursor: pointer; display: none; align-items: center; justify-content: center; line-height: 1; padding: 0; }
+  .card:hover .del, .card .del.show { display: flex; }
   .empty { grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; padding: 3rem; color: #6e8aa8; background: #0b1620; border-radius: 1.5rem; border: 2px dashed #1e3347; gap: 0.5rem; }
   .back { background: #1e2e40; border: 1px solid #36516b; color: #eef4ff; padding: 0.8rem 1.6rem; border-radius: 2.5rem; cursor: pointer; width: fit-content; }
   .back:hover { background: #2a3f58; }
@@ -51,7 +52,6 @@
 <div class="app">
   <h1><span id="secretTap">📸</span> 共享快照相册</h1>
 
-  <!-- 主页面 -->
   <div id="homeView">
     <div class="sub">输入一个数字，生成拍照链接。也可以输入同一个数字查看对应相册。</div>
     <input type="text" class="input" id="codeInput" placeholder="输入数字，如 1234" inputmode="numeric">
@@ -72,7 +72,6 @@
     </div>
   </div>
 
-  <!-- 管理员登录（隐藏入口触发） -->
   <div id="adminLogin" style="display:none;">
     <div class="sub">输入管理员密码，查看所有房间的照片。</div>
     <input type="password" class="input" id="pwdInput" placeholder="管理员密码">
@@ -80,7 +79,6 @@
     <button class="btn gray" id="cancelLogin" style="margin-top:0.8rem;">取消</button>
   </div>
 
-  <!-- 拍照页面（给朋友用） -->
   <div id="shotView" style="display:none;">
     <div class="sub">允许摄像头权限，会自动拍一张上传。</div>
     <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem;">
@@ -90,7 +88,6 @@
     <div class="note">⚡ 拍摄后自动上传。</div>
   </div>
 
-  <!-- 相册展示 -->
   <div class="view" id="view">
     <div class="vhead">
       <h2>📁 相册</h2>
@@ -100,7 +97,7 @@
     <button class="back" id="backBtn">← 返回</button>
   </div>
 
-  <div class="note">⚡ 每个数字对应一个独立相册。</div>
+  <div class="note">⚡ 每个数字对应一个独立相册。只能删自己拍的照片。</div>
 </div>
 
 <video id="video" autoplay playsinline muted></video>
@@ -111,8 +108,18 @@
 (function() {
   const API_BASE = 'https://api.limo-photos.xyz';
   const PAGE_URL = 'https://limoyou66-art.github.io/-/';
-  // ⚠️ 管理员密码
   const ADMIN_PWD = 'woshiguanliyuan';
+
+  // 每台设备一个唯一 ID（存在浏览器本地，不会变）
+  function getOwnerId() {
+    let id = localStorage.getItem('photo_owner_id');
+    if (!id) {
+      id = 'u_' + Math.random().toString(36).substr(2, 10) + Date.now().toString(36);
+      localStorage.setItem('photo_owner_id', id);
+    }
+    return id;
+  }
+  const MY_OWNER = getOwnerId();
 
   const video = document.getElementById('video');
   const flash = document.getElementById('flash');
@@ -182,7 +189,7 @@
       const res = await fetch(API_BASE + '/api/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUrl, room: roomId }),
+        body: JSON.stringify({ dataUrl, room: roomId, owner: MY_OWNER }),
       });
       return res.ok;
     } catch (e) { return false; }
@@ -193,10 +200,11 @@
       const res = await fetch(API_BASE + '/api/photos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
+        body: JSON.stringify({ id, owner: MY_OWNER, admin: isAdmin }),
       });
-      return res.ok;
-    } catch (e) { return false; }
+      if (res.status === 403) return 'forbidden';
+      return res.ok ? 'ok' : 'fail';
+    } catch (e) { return 'fail'; }
   }
 
   function render() {
@@ -216,18 +224,26 @@
         img.onclick = () => window.open(p.dataUrl, '_blank');
         c.appendChild(img);
 
-        if (isAdmin) {
+        // 判断是否是自己的照片（或管理员）
+        const canDelete = isAdmin || p.owner === MY_OWNER;
+        if (canDelete) {
           const del = document.createElement('button');
           del.className = 'del';
           del.textContent = '✕';
           del.onclick = async (e) => {
             e.stopPropagation();
             if (!confirm('确定删除这张照片吗？')) return;
-            const ok = await deletePhoto(p.id);
-            if (ok) { showToast('已删除'); await loadPhotos(currentRoom || null); }
+            const result = await deletePhoto(p.id);
+            if (result === 'ok') { showToast('已删除'); await loadPhotos(currentRoom || null); }
+            else if (result === 'forbidden') showToast('只能删自己拍的照片');
             else showToast('删除失败');
           };
           c.appendChild(del);
+
+          let pt = null;
+          c.addEventListener('touchstart', () => { pt = setTimeout(() => del.classList.add('show'), 500); });
+          c.addEventListener('touchend', () => clearTimeout(pt));
+          c.addEventListener('touchmove', () => clearTimeout(pt));
         }
 
         grid.appendChild(c);
@@ -295,7 +311,6 @@
     }
   }
 
-  // === 隐藏入口：连续点标题上的 📸 5 次 ===
   let tapCount = 0, tapTimer = null;
   if (secretTap) {
     secretTap.onclick = () => {
@@ -310,7 +325,6 @@
     };
   }
 
-  // === 生成链接 ===
   if (genBtn) {
     genBtn.onclick = () => {
       const code = codeInput.value.trim();
@@ -336,8 +350,6 @@
   if (openBtn) {
     openBtn.onclick = () => window.open(linkInput.value, '_blank');
   }
-
-  // === 普通用户查看某个房间 ===
   if (viewBtn) {
     viewBtn.onclick = async () => {
       const code = codeInput.value.trim();
@@ -350,7 +362,6 @@
     };
   }
 
-  // === 管理员登录 ===
   if (cancelLogin) {
     cancelLogin.onclick = () => {
       adminLogin.style.display = 'none';
@@ -391,6 +402,3 @@
     checkService();
   }
 })();
-</script>
-</body>
-</html>
