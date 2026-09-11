@@ -17,6 +17,8 @@
   .btn:disabled { opacity: 0.4; pointer-events: none; }
   .btn.gray { background: #1e2e40; border: 1px solid #36516b; }
   .btn.gray:hover { background: #2a3f58; }
+  .input { background: #1e2f44; border: 1px solid #3d5a78; color: #fff; width: 100%; padding: 1.1rem 1.2rem; border-radius: 1.2rem; margin-bottom: 1rem; font-size: 1.1rem; text-align: center; letter-spacing: 0.2em; }
+  .input:focus { outline: none; border-color: #3b82f6; }
   .result { background: #0e1a26; border: 1px solid #36516b; border-radius: 1.2rem; padding: 1rem; margin-top: 1.2rem; word-break: break-all; font-size: 0.9rem; color: #a2b9d4; display: none; }
   .result.on { display: block; }
   .result input { background: #1e2f44; border: 1px solid #3d5a78; color: #fff; width: 100%; padding: 0.7rem 1rem; border-radius: 0.8rem; margin-top: 0.5rem; font-size: 0.9rem; }
@@ -45,48 +47,70 @@
   .flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 9999; }
   .flash.on { opacity: 0.7; }
   .note { margin-top: 1.5rem; font-size: 0.75rem; color: #5f7991; text-align: center; border-top: 1px solid #1f3244; padding-top: 1rem; }
+  .tabs { display: flex; gap: 0.6rem; margin-bottom: 1.5rem; }
+  .tab { flex: 1; background: #1e2e40; border: 1px solid #36516b; color: #a2b9d4; padding: 0.9rem; border-radius: 1.2rem; font-size: 0.95rem; cursor: pointer; text-align: center; transition: 0.2s; }
+  .tab.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 </style>
 </head>
 <body>
 <div class="app">
   <h1><span>📸</span> 共享快照相册</h1>
 
+  <!-- 主页面 -->
   <div id="homeView">
-    <div class="sub">点一下生成临时链接，发给朋友打开就能自动拍照。</div>
-    <button class="btn" id="genBtn">🔗 生成拍照链接</button>
-    <div class="result" id="result">
-      <div>链接已生成，复制发给朋友：</div>
-      <input type="text" id="linkInput" readonly>
-      <div class="row">
-        <button class="btn gray" id="copyBtn">📋 复制链接</button>
-        <button class="btn gray" id="openBtn">🔗 立即打开</button>
+    <div class="tabs">
+      <div class="tab active" id="tabCreate">生成链接</div>
+      <div class="tab" id="tabView">查看照片</div>
+    </div>
+
+    <!-- 生成链接 -->
+    <div id="createPanel">
+      <div class="sub">输入一个数字（比如房间号），生成对应的拍照链接。</div>
+      <input type="text" class="input" id="createCode" placeholder="输入数字，如 1234" inputmode="numeric">
+      <button class="btn" id="genBtn">🔗 生成拍照链接</button>
+      <div class="result" id="result">
+        <div>链接已生成，复制发给朋友：</div>
+        <input type="text" id="linkInput" readonly>
+        <div class="row">
+          <button class="btn gray" id="copyBtn">📋 复制链接</button>
+          <button class="btn gray" id="openBtn">🔗 立即打开</button>
+        </div>
       </div>
     </div>
+
+    <!-- 查看照片 -->
+    <div id="viewPanel" style="display:none;">
+      <div class="sub">输入数字，查看对应相册的照片。</div>
+      <input type="text" class="input" id="viewCode" placeholder="输入数字，如 1234" inputmode="numeric">
+      <button class="btn" id="loadBtn">🖼️ 查看照片</button>
+    </div>
+
     <div style="margin-top:1.5rem;text-align:center;">
       <span class="badge"><span class="dot on" id="dot"></span><span id="status">检查服务中...</span></span>
     </div>
-    <button class="btn gray" id="viewBtn" style="margin-top:1.5rem;">🖼️ 查看所有照片</button>
   </div>
 
+  <!-- 拍照页面 -->
   <div id="shotView" style="display:none;">
-    <div class="sub">允许摄像头权限，会自动拍一张上传到 <b id="roomLabel"></b> 相册。</div>
+    <div class="sub">允许摄像头权限，会自动拍一张上传到相册。</div>
     <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem;">
       <span class="badge"><span class="dot" id="dot2"></span><span id="status2">等待摄像头</span></span>
     </div>
     <button class="btn gray" id="shotBtn" disabled>📷 再拍一张</button>
-    <div class="note">⚡ 拍摄后自动上传，所有拿到此链接的人都能看到。</div>
+    <div class="note">⚡ 拍摄后自动上传。</div>
   </div>
 
+  <!-- 相册展示 -->
   <div class="view" id="view">
     <div class="vhead">
-      <h2>📁 共享照片墙</h2>
+      <h2>📁 相册</h2>
       <div class="count" id="count">0 张</div>
     </div>
     <div class="grid" id="grid"></div>
     <button class="back" id="backBtn">← 返回</button>
   </div>
 
-  <div class="note">⚡ 每个链接对应一个独立相册，互相不干扰。</div>
+  <div class="note">⚡ 每个数字对应一个独立相册，互不干扰。</div>
 </div>
 
 <video id="video" autoplay playsinline muted></video>
@@ -106,21 +130,27 @@
   const view = document.getElementById('view');
   const grid = document.getElementById('grid');
   const count = document.getElementById('count');
+  const createPanel = document.getElementById('createPanel');
+  const viewPanel = document.getElementById('viewPanel');
+  const tabCreate = document.getElementById('tabCreate');
+  const tabView = document.getElementById('tabView');
+  const createCode = document.getElementById('createCode');
+  const viewCode = document.getElementById('viewCode');
   const genBtn = document.getElementById('genBtn');
+  const loadBtn = document.getElementById('loadBtn');
   const result = document.getElementById('result');
   const linkInput = document.getElementById('linkInput');
   const copyBtn = document.getElementById('copyBtn');
   const openBtn = document.getElementById('openBtn');
-  const viewBtn = document.getElementById('viewBtn');
   const backBtn = document.getElementById('backBtn');
   const shotBtn = document.getElementById('shotBtn');
   const dot = document.getElementById('dot');
   const status = document.getElementById('status');
   const dot2 = document.getElementById('dot2');
   const status2 = document.getElementById('status2');
-  const roomLabel = document.getElementById('roomLabel');
 
   let stream = null, photos = [], autoDone = false, toastTimer = null;
+  let currentRoom = 'default';
 
   const params = new URLSearchParams(location.search);
   const isShotMode = params.has('room');
@@ -135,26 +165,20 @@
 
   async function checkService() {
     try {
-      const res = await fetch(API_BASE + '/api/photos?room=' + roomId);
-      if (res.ok) {
-        dot.className = 'dot on';
-        status.textContent = '服务正常';
-      } else throw new Error();
-    } catch (e) {
-      dot.className = 'dot err';
-      status.textContent = '服务异常';
-    }
+      const res = await fetch(API_BASE + '/api/photos?room=default');
+      if (res.ok) { dot.className = 'dot on'; status.textContent = '服务正常'; }
+      else throw new Error();
+    } catch (e) { dot.className = 'dot err'; status.textContent = '服务异常'; }
   }
 
-  async function loadPhotos() {
+  async function loadPhotos(room) {
     try {
-      const res = await fetch(API_BASE + '/api/photos?room=' + roomId);
+      const res = await fetch(API_BASE + '/api/photos?room=' + encodeURIComponent(room));
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (Array.isArray(data)) photos = data;
-    } catch (e) {
-      showToast('加载照片失败');
-    }
+      else photos = [];
+    } catch (e) { showToast('加载照片失败'); photos = []; }
     render();
   }
 
@@ -204,7 +228,7 @@
           e.stopPropagation();
           if (!confirm('确定删除这张照片吗？')) return;
           const ok = await deletePhoto(p.id);
-          if (ok) { showToast('已删除'); await loadPhotos(); }
+          if (ok) { showToast('已删除'); await loadPhotos(currentRoom); }
           else showToast('删除失败');
         };
         c.appendChild(del);
@@ -279,9 +303,30 @@
     }
   }
 
+  // === 标签切换 ===
+  if (tabCreate) {
+    tabCreate.onclick = () => {
+      tabCreate.classList.add('active');
+      tabView.classList.remove('active');
+      createPanel.style.display = 'block';
+      viewPanel.style.display = 'none';
+    };
+  }
+  if (tabView) {
+    tabView.onclick = () => {
+      tabView.classList.add('active');
+      tabCreate.classList.remove('active');
+      viewPanel.style.display = 'block';
+      createPanel.style.display = 'none';
+    };
+  }
+
+  // === 生成链接 ===
   if (genBtn) {
     genBtn.onclick = () => {
-      const code = Math.random().toString(36).substr(2, 8);
+      const code = createCode.value.trim();
+      if (!code) { showToast('请先输入一个数字'); return; }
+      if (!/^\d+$/.test(code)) { showToast('请输入纯数字'); return; }
       const link = PAGE_URL + '?room=' + code;
       linkInput.value = link;
       result.classList.add('on');
@@ -303,17 +348,24 @@
   if (openBtn) {
     openBtn.onclick = () => window.open(linkInput.value, '_blank');
   }
-  if (viewBtn) {
-    viewBtn.onclick = async () => {
+
+  // === 查看照片 ===
+  if (loadBtn) {
+    loadBtn.onclick = async () => {
+      const code = viewCode.value.trim();
+      if (!code) { showToast('请先输入数字'); return; }
+      if (!/^\d+$/.test(code)) { showToast('请输入纯数字'); return; }
+      currentRoom = code;
       homeView.style.display = 'none';
       view.classList.add('on');
-      await loadPhotos();
+      await loadPhotos(code);
     };
   }
+
   if (backBtn) {
     backBtn.onclick = () => {
       view.classList.remove('on');
-      if (homeView) homeView.style.display = 'block';
+      homeView.style.display = 'block';
     };
   }
   if (shotBtn) shotBtn.onclick = () => takePhoto(false);
@@ -323,7 +375,6 @@
   if (isShotMode) {
     homeView.style.display = 'none';
     shotView.style.display = 'block';
-    if (roomLabel) roomLabel.textContent = '「' + roomId + '」';
     setTimeout(initCamera, 100);
   } else {
     checkService();
