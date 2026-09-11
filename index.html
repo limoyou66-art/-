@@ -116,6 +116,7 @@
       <button class="btn small gray" id="shotBack">📷 后置摄像头</button>
     </div>
     <button class="btn gray" id="shotBtn" disabled>📷 再拍一张</button>
+    <button class="btn gray" id="shotHomeBtn" style="margin-top:0.8rem;">🏠 返回首页</button>
     <div class="note">⚡ 拍摄后自动上传。</div>
   </div>
 
@@ -178,6 +179,7 @@
   const shotBtn = document.getElementById('shotBtn');
   const shotFront = document.getElementById('shotFront');
   const shotBack = document.getElementById('shotBack');
+  const shotHomeBtn = document.getElementById('shotHomeBtn');
   const camPicker = document.getElementById('camPicker');
   const dot = document.getElementById('dot');
   const status = document.getElementById('status');
@@ -189,7 +191,8 @@
   let stream = null, photos = [], toastTimer = null;
   let currentRoom = 'default';
   let isAdmin = false;
-  let cameraReady = false;  // 摄像头是否已授权并可用
+  let cameraReady = false;
+  let currentFacing = 'user';
 
   const params = new URLSearchParams(location.search);
   const isShotMode = params.has('room');
@@ -304,7 +307,6 @@
     c.width = video.videoWidth;
     c.height = video.videoHeight;
     const ctx = c.getContext('2d');
-    // 前置镜像，后置不镜像
     if (currentFacing === 'user') {
       ctx.translate(c.width, 0);
       ctx.scale(-1, 1);
@@ -313,13 +315,9 @@
     return c.toDataURL('image/jpeg', 0.7);
   }
 
-  let currentFacing = 'user';
-
-  // 请求摄像头（不自动拍照）
   async function initCamera(facing) {
     facing = facing || currentFacing;
     currentFacing = facing;
-    // 停掉旧的流
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     video.srcObject = null;
     cameraReady = false;
@@ -343,13 +341,12 @@
     } catch (e) {
       if (dot2) { dot2.className = 'dot err'; status2.textContent = '权限被拒绝'; }
       cameraReady = false;
-      shotBtn.disabled = false; // 允许重试
+      shotBtn.disabled = false;
       showToast('请允许摄像头权限', 3000);
     }
   }
 
   async function takePhoto() {
-    // 如果没授权，先请求权限
     if (!cameraReady || !stream) {
       showToast('正在请求摄像头权限...');
       await initCamera();
@@ -465,12 +462,20 @@
   if (shotFront) shotFront.onclick = () => initCamera('user');
   if (shotBack) shotBack.onclick = () => initCamera('environment');
 
+  // 拍照页面返回首页
+  if (shotHomeBtn) {
+    shotHomeBtn.onclick = () => {
+      stopStream();
+      shotView.style.display = 'none';
+      homeView.style.display = 'block';
+    };
+  }
+
   window.addEventListener('beforeunload', stopStream);
 
   if (isShotMode) {
     homeView.style.display = 'none';
     shotView.style.display = 'block';
-    // 进入页面只请求权限，不自动拍照
     setTimeout(() => initCamera('user'), 100);
   } else {
     checkService();
