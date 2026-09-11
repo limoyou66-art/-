@@ -17,7 +17,8 @@
   .btn:disabled { opacity: 0.4; pointer-events: none; }
   .btn.gray { background: #1e2e40; border: 1px solid #36516b; }
   .btn.gray:hover { background: #2a3f58; }
-  .input { background: #1e2f44; border: 1px solid #3d5a78; color: #fff; width: 100%; padding: 1.1rem 1.2rem; border-radius: 1.2rem; margin-bottom: 1rem; font-size: 1.1rem; text-align: center; letter-spacing: 0.2em; }
+  .btn.small { padding: 0.8rem 1.2rem; font-size: 0.9rem; border-radius: 1rem; }
+  .input { background: #1e2f44; border: 1px solid #3d5a78; color: #fff; width: 100%; padding: 1.1rem 1.2rem; border-radius: 1.2rem; margin-bottom: 1rem; font-size: 1.1rem; text-align: center; letter-spacing: 0.05em; }
   .input:focus { outline: none; border-color: #3b82f6; }
   .result { background: #0e1a26; border: 1px solid #36516b; border-radius: 1.2rem; padding: 1rem; margin-top: 1.2rem; word-break: break-all; font-size: 0.9rem; color: #a2b9d4; display: none; }
   .result.on { display: block; }
@@ -30,9 +31,12 @@
   .dot.err { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
   .view { display: none; flex-direction: column; gap: 1.5rem; margin-top: 1rem; }
   .view.on { display: flex; }
-  .vhead { display: flex; justify-content: space-between; align-items: center; }
+  .vhead { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; }
   .vhead h2 { font-size: 1.3rem; font-weight: 500; color: #d9e9ff; }
+  .vhead-right { display: flex; align-items: center; gap: 0.5rem; }
   .count { background: #1e2f44; padding: 0.3rem 1.1rem; border-radius: 40px; font-size: 0.85rem; border: 1px solid #3a5570; color: #b9d0ea; }
+  .refresh-btn { background: #1e2e40; border: 1px solid #36516b; color: #eef4ff; padding: 0.4rem 0.9rem; border-radius: 40px; font-size: 0.8rem; cursor: pointer; }
+  .refresh-btn:hover { background: #2a3f58; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 1rem; max-height: 380px; overflow-y: auto; padding: 0.3rem 0; }
   .card { aspect-ratio: 1/1; background: #101f2e; border-radius: 1.2rem; overflow: hidden; border: 2px solid #20384d; transition: 0.2s; position: relative; }
   .card img { width: 100%; height: 100%; object-fit: cover; cursor: pointer; }
@@ -46,15 +50,34 @@
   .flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 9999; }
   .flash.on { opacity: 0.7; }
   .note { margin-top: 1.5rem; font-size: 0.75rem; color: #5f7991; text-align: center; border-top: 1px solid #1f3244; padding-top: 1rem; }
+  .tips { background: #0e1a26; border: 1px solid #36516b; border-radius: 1.2rem; padding: 1.2rem 1.4rem; margin-bottom: 1.5rem; font-size: 0.9rem; color: #a2b9d4; line-height: 1.7; }
+  .tips h3 { color: #d9e9ff; font-size: 1rem; margin-bottom: 0.6rem; }
+  .tips ol { padding-left: 1.2rem; }
+  .tips li { margin-bottom: 0.4rem; }
+  .tips b { color: #93c5fd; }
+  .close-tips { float: right; background: none; border: none; color: #6e8aa8; font-size: 1.1rem; cursor: pointer; padding: 0; line-height: 1; }
 </style>
 </head>
 <body>
 <div class="app">
   <h1><span id="secretTap">📸</span> 共享快照相册</h1>
 
+  <!-- 主页面 -->
   <div id="homeView">
-    <div class="sub">输入一个数字，生成拍照链接。也可以输入同一个数字查看对应相册。</div>
-    <input type="text" class="input" id="codeInput" placeholder="输入数字，如 1234" inputmode="numeric">
+    <!-- 使用说明 -->
+    <div class="tips" id="tips">
+      <button class="close-tips" onclick="document.getElementById('tips').style.display='none'">✕</button>
+      <h3>📖 使用说明</h3>
+      <ol>
+        <li>在下面输入一个<b>数字</b>（比如 <b>1234</b>）。</li>
+        <li>点 <b>“🔗 生成链接”</b>，得到一个拍照链接，复制发给朋友。</li>
+        <li>朋友打开链接，允许摄像头后会<b>自动拍照上传</b>。</li>
+        <li>想查看照片，就输入<b>同一个数字</b>，点 <b>“🖼️ 查看照片”</b>。</li>
+        <li>也可以直接<b>粘贴链接</b>到输入框，点“查看照片”一样能看。</li>
+      </ol>
+    </div>
+
+    <input type="text" class="input" id="codeInput" placeholder="输入数字 或 粘贴链接">
     <div class="row" style="margin-top:0;">
       <button class="btn" id="genBtn">🔗 生成链接</button>
       <button class="btn gray" id="viewBtn">🖼️ 查看照片</button>
@@ -72,6 +95,7 @@
     </div>
   </div>
 
+  <!-- 管理员登录 -->
   <div id="adminLogin" style="display:none;">
     <div class="sub">输入管理员密码，查看所有房间的照片。</div>
     <input type="password" class="input" id="pwdInput" placeholder="管理员密码">
@@ -79,6 +103,7 @@
     <button class="btn gray" id="cancelLogin" style="margin-top:0.8rem;">取消</button>
   </div>
 
+  <!-- 拍照页面 -->
   <div id="shotView" style="display:none;">
     <div class="sub">允许摄像头权限，会自动拍一张上传。</div>
     <div style="display:flex; gap:0.6rem; flex-wrap:wrap; margin-bottom:1rem;">
@@ -88,16 +113,20 @@
     <div class="note">⚡ 拍摄后自动上传。</div>
   </div>
 
+  <!-- 相册展示 -->
   <div class="view" id="view">
     <div class="vhead">
       <h2>📁 相册</h2>
-      <div class="count" id="count">0 张</div>
+      <div class="vhead-right">
+        <button class="refresh-btn" id="refreshBtn">🔄 刷新</button>
+        <div class="count" id="count">0 张</div>
+      </div>
     </div>
     <div class="grid" id="grid"></div>
     <button class="back" id="backBtn">← 返回</button>
   </div>
 
-  <div class="note">⚡ 每个数字对应一个独立相册。</div>
+  <div class="note">⚡ 每个数字对应一个独立相册。只能删自己拍的照片。</div>
 </div>
 
 <video id="video" autoplay playsinline muted></video>
@@ -146,6 +175,7 @@
   const dot2 = document.getElementById('dot2');
   const status2 = document.getElementById('status2');
   const secretTap = document.getElementById('secretTap');
+  const refreshBtn = document.getElementById('refreshBtn');
 
   let stream = null, photos = [], autoDone = false, toastTimer = null;
   let currentRoom = 'default';
@@ -168,6 +198,17 @@
       if (res.ok) { dot.className = 'dot on'; status.textContent = '服务正常'; }
       else throw new Error();
     } catch (e) { dot.className = 'dot err'; status.textContent = '服务异常'; }
+  }
+
+  // 从输入里提取房间号：支持纯数字，也支持粘贴完整链接
+  function extractRoom(input) {
+    input = input.trim();
+    if (!input) return '';
+    // 如果里面包含 room=xxx，就提取出来
+    const m = input.match(/[?&]room=([^&#]+)/);
+    if (m) return decodeURIComponent(m[1]);
+    // 否则当成纯数字用
+    return input;
   }
 
   async function loadPhotos(room) {
@@ -309,6 +350,7 @@
     }
   }
 
+  // 隐藏入口
   let tapCount = 0, tapTimer = null;
   if (secretTap) {
     secretTap.onclick = () => {
@@ -325,8 +367,9 @@
 
   if (genBtn) {
     genBtn.onclick = () => {
-      const code = codeInput.value.trim();
-      if (!code) { showToast('请先输入数字'); return; }
+      const input = codeInput.value.trim();
+      if (!input) { showToast('请先输入数字'); return; }
+      const code = extractRoom(input);
       const link = PAGE_URL + '?room=' + encodeURIComponent(code);
       linkInput.value = link;
       result.classList.add('on');
@@ -350,13 +393,24 @@
   }
   if (viewBtn) {
     viewBtn.onclick = async () => {
-      const code = codeInput.value.trim();
-      if (!code) { showToast('请先输入数字'); return; }
+      const input = codeInput.value.trim();
+      if (!input) { showToast('请先输入数字或链接'); return; }
+      const code = extractRoom(input);
+      if (!code) { showToast('无法识别，请重新输入'); return; }
       currentRoom = code;
       isAdmin = false;
       homeView.style.display = 'none';
       view.classList.add('on');
       await loadPhotos(code);
+    };
+  }
+
+  if (refreshBtn) {
+    refreshBtn.onclick = () => {
+      if (view.classList.contains('on')) {
+        loadPhotos(currentRoom || null);
+        showToast('已刷新');
+      }
     };
   }
 
