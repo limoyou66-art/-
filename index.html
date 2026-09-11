@@ -68,7 +68,7 @@
       </div>
     </div>
     <div style="margin-top:1.5rem;text-align:center;">
-      <span class="badge"><span class="dot on" id="dot"></span><span id="status">检查服务中...</span></span>
+      <span class="badge"><span class="dot" id="dot"></span><span id="status">检查服务中...</span></span>
     </div>
   </div>
 
@@ -97,7 +97,7 @@
     <button class="back" id="backBtn">← 返回</button>
   </div>
 
-  <div class="note">⚡ 每个数字对应一个独立相册。只能删自己拍的照片。</div>
+  <div class="note">⚡ 每个数字对应一个独立相册。</div>
 </div>
 
 <video id="video" autoplay playsinline muted></video>
@@ -110,7 +110,6 @@
   const PAGE_URL = 'https://limoyou66-art.github.io/-/';
   const ADMIN_PWD = 'woshiguanliyuan';
 
-  // 每台设备一个唯一 ID（存在浏览器本地，不会变）
   function getOwnerId() {
     let id = localStorage.getItem('photo_owner_id');
     if (!id) {
@@ -224,7 +223,6 @@
         img.onclick = () => window.open(p.dataUrl, '_blank');
         c.appendChild(img);
 
-        // 判断是否是自己的照片（或管理员）
         const canDelete = isAdmin || p.owner === MY_OWNER;
         if (canDelete) {
           const del = document.createElement('button');
@@ -233,9 +231,9 @@
           del.onclick = async (e) => {
             e.stopPropagation();
             if (!confirm('确定删除这张照片吗？')) return;
-            const result = await deletePhoto(p.id);
-            if (result === 'ok') { showToast('已删除'); await loadPhotos(currentRoom || null); }
-            else if (result === 'forbidden') showToast('只能删自己拍的照片');
+            const r = await deletePhoto(p.id);
+            if (r === 'ok') { showToast('已删除'); await loadPhotos(currentRoom || null); }
+            else if (r === 'forbidden') showToast('只能删自己拍的照片');
             else showToast('删除失败');
           };
           c.appendChild(del);
@@ -402,3 +400,6 @@
     checkService();
   }
 })();
+</script>
+</body>
+</html>
