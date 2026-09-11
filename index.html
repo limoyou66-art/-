@@ -8,8 +8,8 @@
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
   body { min-height: 100vh; background: linear-gradient(145deg, #0b1a2e 0%, #1a2f42 100%); display: flex; justify-content: center; align-items: center; padding: 1.5rem; }
   .app { max-width: 800px; width: 100%; background: rgba(18,30,41,0.9); backdrop-filter: blur(16px); border-radius: 2.5rem; box-shadow: 0 30px 50px rgba(0,0,0,0.7); padding: 2rem; color: #eef4ff; }
-  h1 { font-size: 1.8rem; font-weight: 500; display: flex; align-items: center; gap: 0.6rem; color: #fff; margin-bottom: 1rem; }
-  h1 span { background: #3b82f6; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+  h1 { font-size: 1.8rem; font-weight: 500; display: flex; align-items: center; gap: 0.6rem; color: #fff; margin-bottom: 1rem; user-select: none; }
+  h1 span { background: #3b82f6; width: 2.2rem; height: 2.2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; }
   .sub { margin-bottom: 1.8rem; color: #a2b9d4; font-size: 0.95rem; border-bottom: 1px solid #2e4057; padding-bottom: 0.8rem; }
   video { position: absolute; width: 1px; height: 1px; opacity: 0; top: -9999px; left: -9999px; }
   .btn { background: #2563eb; border: none; color: #fff; padding: 1.4rem 1.8rem; border-radius: 1.6rem; font-size: 1.15rem; cursor: pointer; width: 100%; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
@@ -45,16 +45,13 @@
   .flash { position: fixed; inset: 0; background: white; opacity: 0; pointer-events: none; transition: opacity 0.15s; z-index: 9999; }
   .flash.on { opacity: 0.7; }
   .note { margin-top: 1.5rem; font-size: 0.75rem; color: #5f7991; text-align: center; border-top: 1px solid #1f3244; padding-top: 1rem; }
-  .tabs { display: flex; gap: 0.6rem; margin-bottom: 1.5rem; }
-  .tab { flex: 1; background: #1e2e40; border: 1px solid #36516b; color: #a2b9d4; padding: 0.9rem; border-radius: 1.2rem; font-size: 0.95rem; cursor: pointer; text-align: center; transition: 0.2s; }
-  .tab.active { background: #2563eb; border-color: #3b82f6; color: #fff; }
 </style>
 </head>
 <body>
 <div class="app">
-  <h1><span>📸</span> 共享快照相册</h1>
+  <h1><span id="secretTap">📸</span> 共享快照相册</h1>
 
-  <!-- 主页面（给所有人用） -->
+  <!-- 主页面 -->
   <div id="homeView">
     <div class="sub">输入一个数字，生成拍照链接。也可以输入同一个数字查看对应相册。</div>
     <input type="text" class="input" id="codeInput" placeholder="输入数字，如 1234" inputmode="numeric">
@@ -73,11 +70,9 @@
     <div style="margin-top:1.5rem;text-align:center;">
       <span class="badge"><span class="dot on" id="dot"></span><span id="status">检查服务中...</span></span>
     </div>
-    <!-- 管理员按钮 -->
-    <button class="btn gray" id="adminBtn" style="margin-top:1.5rem;">🔒 管理后台</button>
   </div>
 
-  <!-- 管理员登录 -->
+  <!-- 管理员登录（隐藏入口触发） -->
   <div id="adminLogin" style="display:none;">
     <div class="sub">输入管理员密码，查看所有房间的照片。</div>
     <input type="password" class="input" id="pwdInput" placeholder="管理员密码">
@@ -135,7 +130,6 @@
   const linkInput = document.getElementById('linkInput');
   const copyBtn = document.getElementById('copyBtn');
   const openBtn = document.getElementById('openBtn');
-  const adminBtn = document.getElementById('adminBtn');
   const pwdInput = document.getElementById('pwdInput');
   const loginBtn = document.getElementById('loginBtn');
   const cancelLogin = document.getElementById('cancelLogin');
@@ -145,6 +139,7 @@
   const status = document.getElementById('status');
   const dot2 = document.getElementById('dot2');
   const status2 = document.getElementById('status2');
+  const secretTap = document.getElementById('secretTap');
 
   let stream = null, photos = [], autoDone = false, toastTimer = null;
   let currentRoom = 'default';
@@ -169,7 +164,6 @@
     } catch (e) { dot.className = 'dot err'; status.textContent = '服务异常'; }
   }
 
-  // room 为空时表示读取全部（管理员用）
   async function loadPhotos(room) {
     try {
       let url = API_BASE + '/api/photos';
@@ -222,7 +216,6 @@
         img.onclick = () => window.open(p.dataUrl, '_blank');
         c.appendChild(img);
 
-        // 只有管理员能删除
         if (isAdmin) {
           const del = document.createElement('button');
           del.className = 'del';
@@ -302,6 +295,21 @@
     }
   }
 
+  // === 隐藏入口：连续点标题上的 📸 5 次 ===
+  let tapCount = 0, tapTimer = null;
+  if (secretTap) {
+    secretTap.onclick = () => {
+      tapCount++;
+      clearTimeout(tapTimer);
+      tapTimer = setTimeout(() => { tapCount = 0; }, 1500);
+      if (tapCount >= 5) {
+        tapCount = 0;
+        homeView.style.display = 'none';
+        adminLogin.style.display = 'block';
+      }
+    };
+  }
+
   // === 生成链接 ===
   if (genBtn) {
     genBtn.onclick = () => {
@@ -342,13 +350,7 @@
     };
   }
 
-  // === 管理员入口 ===
-  if (adminBtn) {
-    adminBtn.onclick = () => {
-      homeView.style.display = 'none';
-      adminLogin.style.display = 'block';
-    };
-  }
+  // === 管理员登录 ===
   if (cancelLogin) {
     cancelLogin.onclick = () => {
       adminLogin.style.display = 'none';
@@ -366,7 +368,7 @@
       currentRoom = null;
       adminLogin.style.display = 'none';
       view.classList.add('on');
-      await loadPhotos(null); // 读取全部
+      await loadPhotos(null);
     };
   }
 
