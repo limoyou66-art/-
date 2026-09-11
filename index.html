@@ -124,7 +124,7 @@
     <button class="back" id="backBtn">← 返回</button>
   </div>
 
-  <div class="note">⚡ 每个数字对应一个独立相册。只能删自己拍的照片。</div>
+  <div class="note">⚡ 每个数字对应一个独立相册。相册内所有人都可以删除照片。</div>
 </div>
 
 <video id="video" autoplay playsinline muted></video>
@@ -198,14 +198,11 @@
     } catch (e) { dot.className = 'dot err'; status.textContent = '服务异常'; }
   }
 
-  // 从输入里提取房间号：支持纯数字，也支持粘贴完整链接
   function extractRoom(input) {
     input = (input || '').trim();
     if (!input) return '';
-    // 如果里面包含 room=xxx，就提取出来
     const m = input.match(/[?&]room=([^&#\s]+)/);
     if (m) return decodeURIComponent(m[1]).trim();
-    // 否则当成纯数字用，去掉所有空格和不可见字符
     return input.replace(/\s/g, '');
   }
 
@@ -233,14 +230,14 @@
     } catch (e) { return false; }
   }
 
+  // 删除：现在所有人都能删（传 admin: true 绕过 owner 校验）
   async function deletePhoto(id) {
     try {
       const res = await fetch(API_BASE + '/api/photos', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, owner: MY_OWNER, admin: isAdmin }),
+        body: JSON.stringify({ id, owner: MY_OWNER, admin: true }),
       });
-      if (res.status === 403) return 'forbidden';
       return res.ok ? 'ok' : 'fail';
     } catch (e) { return 'fail'; }
   }
@@ -262,26 +259,23 @@
         img.onclick = () => window.open(p.dataUrl, '_blank');
         c.appendChild(img);
 
-        const canDelete = isAdmin || p.owner === MY_OWNER;
-        if (canDelete) {
-          const del = document.createElement('button');
-          del.className = 'del';
-          del.textContent = '✕';
-          del.onclick = async (e) => {
-            e.stopPropagation();
-            if (!confirm('确定删除这张照片吗？')) return;
-            const r = await deletePhoto(p.id);
-            if (r === 'ok') { showToast('已删除'); await loadPhotos(currentRoom || null); }
-            else if (r === 'forbidden') showToast('只能删自己拍的照片');
-            else showToast('删除失败');
-          };
-          c.appendChild(del);
+        // 所有人都能删
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '✕';
+        del.onclick = async (e) => {
+          e.stopPropagation();
+          if (!confirm('确定删除这张照片吗？')) return;
+          const r = await deletePhoto(p.id);
+          if (r === 'ok') { showToast('已删除'); await loadPhotos(currentRoom || null); }
+          else showToast('删除失败');
+        };
+        c.appendChild(del);
 
-          let pt = null;
-          c.addEventListener('touchstart', () => { pt = setTimeout(() => del.classList.add('show'), 500); });
-          c.addEventListener('touchend', () => clearTimeout(pt));
-          c.addEventListener('touchmove', () => clearTimeout(pt));
-        }
+        let pt = null;
+        c.addEventListener('touchstart', () => { pt = setTimeout(() => del.classList.add('show'), 500); });
+        c.addEventListener('touchend', () => clearTimeout(pt));
+        c.addEventListener('touchmove', () => clearTimeout(pt));
 
         grid.appendChild(c);
       });
@@ -348,7 +342,6 @@
     }
   }
 
-  // 隐藏入口
   let tapCount = 0, tapTimer = null;
   if (secretTap) {
     secretTap.onclick = () => {
