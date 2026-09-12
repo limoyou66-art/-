@@ -57,6 +57,9 @@
   .hidden-file { display: none; }
   .camera-row { display: flex; gap: 0.6rem; margin-bottom: 0.8rem; }
   .camera-row .btn { padding: 0.9rem 1rem; font-size: 0.95rem; border-radius: 1.2rem; }
+  .load-more { grid-column: 1/-1; background: #1e2e40; border: 1px dashed #36516b; color: #a2b9d4; padding: 1rem; border-radius: 1rem; cursor: pointer; font-size: 0.95rem; text-align: center; margin-top: 0.5rem; }
+  .load-more:hover { background: #2a3f58; color: #fff; }
+  .loading-hint { grid-column: 1/-1; text-align: center; color: #6e8aa8; padding: 1rem; font-size: 0.9rem; }
 </style>
 </head>
 <body>
@@ -135,6 +138,7 @@
 (function() {
   const API_BASE = 'https://api.limo-photos.xyz';
   const ADMIN_PWD = 'woshiguanliyuan';
+  const PAGE_SIZE = 20;  // 每次加载多少张照片
 
   function getOwnerId() {
     let id = localStorage.getItem('photo_owner_id');
@@ -178,6 +182,7 @@
   let isAdmin = false;
   let cameraReady = false;
   let currentFacing = 'user';
+  let displayedCount = 0;  // 当前已显示多少张
 
   function showToast(msg, dur = 2000) {
     clearTimeout(toastTimer);
@@ -194,13 +199,17 @@
     } catch (e) { dot.className = 'dot err'; status.textContent = '服务异常'; }
   }
 
+  // 加载所有照片（只拉一次全部数据，然后前端分页显示）
   async function loadPhotos() {
     try {
       const res = await fetch(API_BASE + '/api/photos');
       if (!res.ok) throw new Error();
       const data = await res.json();
       photos = Array.isArray(data) ? data : [];
+      // 按时间倒序
+      photos.sort((a, b) => (b.time || 0) - (a.time || 0));
     } catch (e) { showToast('加载照片失败'); photos = []; }
+    displayedCount = 0;
     render();
   }
 
@@ -227,47 +236,75 @@
     } catch (e) { return 'fail'; }
   }
 
+  // 渲染相册（分页显示）
   function render() {
     grid.innerHTML = '';
+
     if (photos.length === 0) {
       const e = document.createElement('div');
       e.className = 'empty';
       e.innerHTML = '<div style="font-size:2rem">📷</div><span>还没有照片</span>';
       grid.appendChild(e);
-    } else {
-      [...photos].sort((a, b) => (b.time || 0) - (a.time || 0)).forEach(p => {
-        const c = document.createElement('div');
-        c.className = 'card';
-        const img = document.createElement('img');
-        img.src = p.dataUrl;
-        img.loading = 'lazy';
-        img.onclick = () => window.open(p.dataUrl, '_blank');
-        c.appendChild(img);
-
-        const canDelete = isAdmin || p.owner === MY_OWNER;
-        if (canDelete) {
-          const del = document.createElement('button');
-          del.className = 'del';
-          del.textContent = '✕';
-          del.onclick = async (e) => {
-            e.stopPropagation();
-            if (!confirm('确定删除这张照片吗？')) return;
-            const r = await deletePhoto(p.id);
-            if (r === 'ok') { showToast('已删除'); await loadPhotos(); }
-            else if (r === 'forbidden') showToast('只能删自己上传的照片');
-            else showToast('删除失败');
-          };
-          c.appendChild(del);
-
-          let pt = null;
-          c.addEventListener('touchstart', () => { pt = setTimeout(() => del.classList.add('show'), 500); });
-          c.addEventListener('touchend', () => clearTimeout(pt));
-          c.addEventListener('touchmove', () => clearTimeout(pt));
-        }
-
-        grid.appendChild(c);
-      });
+      count.textContent = '0 张';
+      return;
     }
+
+    // 决定这次要显示多少张
+    const showCount = displayedCount + PAGE_SIZE;
+    const list = photos.slice(0, showCount);
+    displayedCount = list.length;
+
+    list.forEach(p => {
+      const c = document.createElement('div');
+      c.className = 'card';
+      const img = document.createElement('img');
+      img.src = p.dataUrl;
+      img.loading = 'lazy';           // 懒加载：只加载屏幕内可见的
+      img.decoding = 'async';         // 异步解码
+      img.onclick = () => window.open(p.dataUrl, '_blank');
+      c.appendChild(img);
+
+      const canDelete = isAdmin || p.owner === MY_OWNER;
+      if (canDelete) {
+        const del = document.createElement('button');
+        del.className = 'del';
+        del.textContent = '✕';
+        del.onclick = async (e) => {
+          e.stopPropagation();
+          if (!confirm('确定删除这张照片吗？')) return;
+          const r = await deletePhoto(p.id);
+          if (r === 'ok') { showToast('已删除'); await loadPhotos(); }
+          else if (r === 'forbidden') showToast('只能删自己上传的照片');
+          else showToast('删除失败');
+        };
+        c.appendChild(del);
+
+        let pt = null;
+        c.addEventListener('touchstart', () => { pt = setTimeout(() => del.classList.add('show'), 500); });
+        c.addEventListener('touchend', () => clearTimeout(pt));
+        c.addEventListener('touchmove', () => clearTimeout(pt));
+      }
+
+      grid.appendChild(c);
+    });
+
+    // 还有更多 → 显示“加载更多”按钮
+    if (displayedCount < photos.length) {
+      const more = document.createElement('div');
+      more.className = 'load-more';
+      more.textContent = `⬇️ 加载更多（还有 ${photos.length - displayedCount} 张）`;
+      more.onclick = () => {
+        render();  // 再渲染一次，displayedCount 会 +PAGE_SIZE
+        // 滚动到新加载的第一张
+      };
+      grid.appendChild(more);
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'loading-hint';
+      hint.textContent = '— 已经到底啦 —';
+      grid.appendChild(hint);
+    }
+
     count.textContent = photos.length + ' 张';
   }
 
@@ -312,7 +349,6 @@
       if (dot2) { dot2.className = 'dot on'; status2.textContent = facing === 'user' ? '前置已就绪' : '后置已就绪'; }
       cameraReady = true;
       shotBtn.disabled = false;
-      // 更新按钮高亮
       if (facing === 'user') {
         shotFront.classList.remove('gray');
         shotFront.classList.add('active');
@@ -397,7 +433,6 @@
     };
   }
 
-  // 点“拍照上传” → 进入拍照页面 → 自动请求摄像头权限
   if (cameraBtn) {
     cameraBtn.onclick = () => {
       homeView.style.display = 'none';
